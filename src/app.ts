@@ -13,5 +13,9 @@ export function createApp() {
   const server = createServer(app);
   attachInterviewSocket(server);
 
+  app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
+
   return server;
 }

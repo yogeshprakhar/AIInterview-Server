@@ -2,4 +2,6 @@ import { createApp } from "./app";
 
 const server = createApp();
 
-server.listen(8000, () => console.log("Server on :8000"));
+const PORT = process.env.PORT ?? 8000;
+server.listen(PORT, () => console.log(`Server on :${PORT}`));
+
