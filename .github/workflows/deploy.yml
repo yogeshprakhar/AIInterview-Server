@@ -101,11 +101,13 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}"
 
       # ── Deploy to Railway ──────────────────────────────────────────────────
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
       - name: Deploy to Railway
-        uses: railway-app/railway-github-action@v1
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: ai-interview-backend
+        run: railway up --service ai-interview-backend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       # ── Notify success ─────────────────────────────────────────────────────
       - name: Notify success
