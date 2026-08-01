@@ -122,7 +122,7 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: 'success',
-              description: '🚀 Deployed ${{ steps.version.outputs.version }} to Railway',
+              description: 'Deployed ${{ steps.version.outputs.version }} to Railway',
               context: 'deploy/railway'
             });
 
@@ -137,6 +137,6 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: 'failure',
-              description: '❌ Deployment failed at ${{ steps.version.outputs.version }}',
+              description: 'Deployment failed at ${{ steps.version.outputs.version }}',
               context: 'deploy/railway'
             });

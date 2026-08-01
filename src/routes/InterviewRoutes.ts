@@ -82,4 +82,9 @@ router.post("/stop-interview", async (req, res) => {
   finaliseInterview(session, true).catch(console.error);
 });
 
+// Health Check
+router.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 export default router;
