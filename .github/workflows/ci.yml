@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Node setup with cache ─────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── Install deps ──────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── TypeScript compile check ──────────────────────────────────────────────
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # ── Run tests (if you add them later) ─────────────────────────────────────
+      - name: Run tests
+        run: npm test --if-present   # won't fail if no test script exists yet
+
+      # ── Docker build check (make sure image builds) ───────────────────────────
+      - name: Build Docker image
+        run: docker build -t ai-interview-backend:pr-${{ github.event.pull_request.number }} .
+
+      # ── Notify PR — success ───────────────────────────────────────────────────
+      - name: Comment on PR (success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ **CI passed** — build and type check succeeded. Ready to merge.'
+            })
+
+      # ── Notify PR — failure ───────────────────────────────────────────────────
+      - name: Comment on PR (failure)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **CI failed** — check the [Actions tab](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            })

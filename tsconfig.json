@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "outDir": "./dist",     // ← compiled files go here
+    "rootDir": "./src",     // ← source files are here
     "module": "commonjs",
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "strict": true,
+    "target": "ES2020",
     "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+    "strict": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

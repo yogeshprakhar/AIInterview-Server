@@ -1,0 +1,138 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy
+    runs-on: ubuntu-latest
+
+    # ✅ needs write permission to create git tags
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # ← fetch full history so we can read all tags
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # ── Auto-increment version ─────────────────────────────────────────────
+      # Reads the latest git tag (e.g. v3), bumps to v4, creates + pushes it
+      - name: Auto bump version
+        id: version
+        run: |
+          # get latest tag, default to v0 if none exists yet
+          LATEST=$(git tag --sort=-version:refname | grep '^v[0-9]' | head -n1)
+          
+          if [ -z "$LATEST" ]; then
+            LATEST="v0"
+          fi
+
+          echo "Latest tag: $LATEST"
+
+          # strip the "v" and increment by 1
+          NUM=${LATEST#v}
+          NEXT="v$((NUM + 1))"
+
+          echo "New tag: $NEXT"
+
+          # create and push the new tag
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $NEXT -m "Auto release $NEXT"
+          git push origin $NEXT
+
+          # expose the new version to later steps
+          echo "version=$NEXT" >> $GITHUB_OUTPUT
+          echo "version_num=$((NUM + 1))" >> $GITHUB_OUTPUT
+
+      # ── Print what version we're deploying ────────────────────────────────
+      - name: Print version
+        run: echo "🚀 Deploying ${{ steps.version.outputs.version }}"
+
+      # ── Docker login ───────────────────────────────────────────────────────
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Docker: generate tags using the auto version ───────────────────────
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/ai-interview-backend
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=sha,prefix=sha-
+
+      # ── Docker: build & push ───────────────────────────────────────────────
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # ── Print tags in logs ─────────────────────────────────────────────────
+      - name: Print generated tags
+        run: |
+          echo "🏷️  Docker tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+
+      # ── Deploy to Railway ──────────────────────────────────────────────────
+      - name: Deploy to Railway
+        uses: railway-app/railway-github-action@v1
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ai-interview-backend
+
+      # ── Notify success ─────────────────────────────────────────────────────
+      - name: Notify success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'success',
+              description: '🚀 Deployed ${{ steps.version.outputs.version }} to Railway',
+              context: 'deploy/railway'
+            });
+
+      # ── Notify failure ─────────────────────────────────────────────────────
+      - name: Notify failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'failure',
+              description: '❌ Deployment failed at ${{ steps.version.outputs.version }}',
+              context: 'deploy/railway'
+            });
