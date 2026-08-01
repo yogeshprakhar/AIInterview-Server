@@ -110,6 +110,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
       # ── Notify success ─────────────────────────────────────────────────────
       - name: Notify success
